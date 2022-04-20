@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.io import loadmat
 
 
 def _set_seed(seed=42):
@@ -10,9 +11,9 @@ def _convolve_rir(reverb=0.160, intervals=[8, 8, 8, 8, 8, 8, 8], degree=[0]):
     "(Reverberation_{reverb:.3f}s)_{intervals}_1m_{degree:03d}.mat"
 
     rir_path = rir_path.format(reverb=reverb, intervals=intervals, degree=degree)
-    # rir_mat = loadmat(rir_path)
-    # rir = rir_mat["impulse_response"]
-    # print(rir.shape)
+    rir_mat = loadmat(rir_path)
+    rir = rir_mat["impulse_response"]
+    print(rir.shape)
     print(rir_path)
 
 
