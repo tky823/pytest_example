@@ -33,3 +33,4 @@ jobs:
       - name: Run
         run: |
           python -c "import pybss; print(pybss.__version__)"
+          python -c "from pybss.bss import GradIVAbase"
