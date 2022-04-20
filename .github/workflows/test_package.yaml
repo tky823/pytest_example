@@ -36,4 +36,6 @@ jobs:
           python -c "from pybss.bss import GradLaplaceIVA"
       - name: pytest
         run: |
-          wget -P .data/ "https://www.iks.rwth-aachen.de/fileadmin/user_upload/downloads/forschung/tools-downloads/Impulse_response_Acoustic_Lab_Bar-Ilan_University__Reverberation_0.160s__8-8-8-8-8-8-8.zip"
+          python tests/.data/download_mird.py
+          ls
+          cd tests/ && ls
