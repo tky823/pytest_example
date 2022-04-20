@@ -25,10 +25,12 @@ class IVAbase:
             self.callbacks = callbacks
         else:
             self.callbacks = None
+
         self.eps = eps
 
         self.input = None
         self.should_record_loss = should_record_loss
+
         if self.should_record_loss:
             self.loss = []
         else:
@@ -147,7 +149,7 @@ class GradIVAbase(IVAbase):
         for _ in range(n_iter):
             self.update_once()
 
-            if self.recordable_loss:
+            if self.should_record_loss:
                 loss = self.compute_negative_loglikelihood()
                 self.loss.append(loss)
 
@@ -162,6 +164,7 @@ class GradIVAbase(IVAbase):
         if self.should_apply_projection_back:
             scale = projection_back(output, reference=X[reference_id])
             output = output * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
+
         self.estimation = output
 
         return output
@@ -178,3 +181,69 @@ class GradIVAbase(IVAbase):
 
     def compute_negative_loglikelihood(self):
         raise NotImplementedError("Implement 'compute_negative_loglikelihood' method.")
+
+
+class GradLaplaceIVA(GradIVAbase):
+    def __init__(
+        self,
+        lr=1e-1,
+        reference_id=0,
+        callbacks=None,
+        should_apply_projection_back=True,
+        should_record_loss=True,
+        eps=EPS,
+    ):
+        super().__init__(
+            lr=lr,
+            reference_id=reference_id,
+            callbacks=callbacks,
+            should_apply_projection_back=should_apply_projection_back,
+            should_record_loss=should_record_loss,
+            eps=eps,
+        )
+
+    def __repr__(self):
+        s = "GradLaplaceIVA("
+        s += "lr={lr}"
+        s += ")"
+
+        return s.format(**self.__dict__)
+
+    def update_once(self):
+        n_frames = self.n_frames
+        lr = self.lr
+        eps = self.eps
+
+        X = self.input
+        W = self.demix_filter
+        Y = self.separate(X, demix_filter=W)
+
+        X_Hermite = X.transpose(1, 2, 0).conj()  # (n_bins, n_frames, n_sources)
+        W_inverse = np.linalg.inv(W)
+        W_inverseHermite = W_inverse.transpose(
+            0, 2, 1
+        ).conj()  # (n_bins, n_channels, n_sources)
+
+        Y = Y.transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
+        P = np.abs(Y) ** 2
+        denominator = np.sqrt(P.sum(axis=0))
+        denominator[denominator < eps] = eps
+        Phi = Y / denominator  # (n_bins, n_sources, n_frames)
+
+        delta = (Phi @ X_Hermite) / n_frames - W_inverseHermite
+        W = W - lr * delta  # (n_bins, n_sources, n_channels)
+
+        X = self.input
+        Y = self.separate(X, demix_filter=W)
+
+        self.demix_filter = W
+        self.estimation = Y
+
+    def compute_negative_loglikelihood(self):
+        X, W = self.input, self.demix_filter
+        Y = self.separate(X, demix_filter=W)
+        P = np.sum(np.abs(Y) ** 2, axis=1)
+        logdetW = np.log(np.abs(np.linalg.det(W))).sum()
+        loss = 2 * np.sum(np.sqrt(P), axis=0).mean() - 2 * logdetW
+
+        return loss

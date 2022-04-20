@@ -28,9 +28,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements/dev.txt
           pip install -e .
       - name: Run
         run: |
           python -c "import pybss; print(pybss.__version__)"
-          python -c "from pybss.bss import GradIVAbase"
+          python -c "from pybss.bss import GradLaplaceIVA"
+      - name: pytest
+        run: |
+          wget -P .data/ "https://www.iks.rwth-aachen.de/fileadmin/user_upload/downloads/forschung/tools-downloads/Impulse_response_Acoustic_Lab_Bar-Ilan_University__Reverberation_0.160s__8-8-8-8-8-8-8.zip"
