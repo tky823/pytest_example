@@ -1,3 +1,3 @@
-from .iva import GradIVAbase
+from .iva import GradLaplaceIVA
 
-__all__ = ["GradIVAbase"]
+__all__ = ["GradLaplaceIVA"]

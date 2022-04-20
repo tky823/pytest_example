@@ -6,7 +6,5 @@ setup(
     url="https://github.com/tky823/pytest_example",
     packages=find_packages(exclude=["tests"]),
     python_requires=">=3.7, <4",
-    install_requires=[
-        "numpy",
-    ]
+    install_requires=["numpy"],
 )

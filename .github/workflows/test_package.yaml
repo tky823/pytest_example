@@ -28,9 +28,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements/dev.txt
           pip install -e .
       - name: Run
         run: |
           python -c "import pybss; print(pybss.__version__)"
-          python -c "from pybss.bss import GradIVAbase"
+          python -c "from pybss.bss import GradLaplaceIVA"
+      - name: Test in Ubuntu & MacOS
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          . ./tests/.data/download_mird.sh
+          cd tests/.data/ && ls
