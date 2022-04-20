@@ -1,5 +1,7 @@
 import numpy as np
 
+from ..algorithm.projection_back import projection_back
+
 EPS = 1e-12
 THRESHOLD = 1e12
 
@@ -128,3 +130,51 @@ class GradIVAbase(IVAbase):
         self.lr = lr
         self.reference_id = reference_id
         self.should_apply_projection_back = should_apply_projection_back
+
+    def __call__(self, input, n_iter=100, **kwargs):
+        self.input = input
+
+        self._reset(**kwargs)
+
+        if self.should_record_loss:
+            loss = self.compute_negative_loglikelihood()
+            self.loss.append(loss)
+
+        if self.callbacks is not None:
+            for callback in self.callbacks:
+                callback(self)
+
+        for _ in range(n_iter):
+            self.update_once()
+
+            if self.recordable_loss:
+                loss = self.compute_negative_loglikelihood()
+                self.loss.append(loss)
+
+            if self.callbacks is not None:
+                for callback in self.callbacks:
+                    callback(self)
+
+        reference_id = self.reference_id
+        X, W = input, self.demix_filter
+        output = self.separate(X, demix_filter=W)
+
+        if self.should_apply_projection_back:
+            scale = projection_back(output, reference=X[reference_id])
+            output = output * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
+        self.estimation = output
+
+        return output
+
+    def __repr__(self):
+        s = "GradIVA("
+        s += "lr={lr}"
+        s += ")"
+
+        return s.format(**self.__dict__)
+
+    def update_once(self):
+        raise NotImplementedError("Implement 'update_once' method.")
+
+    def compute_negative_loglikelihood(self):
+        raise NotImplementedError("Implement 'compute_negative_loglikelihood' method.")
