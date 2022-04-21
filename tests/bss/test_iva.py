@@ -13,7 +13,7 @@ def _convolve_rir(reverb=0.160, intervals=[8, 8, 8, 8, 8, 8, 8], degree=[0]):
     )
 
     rir_path = rir_path.format(
-        reverb=reverb, intervals="-".join(intervals), degree=degree
+        reverb=reverb, intervals="-".join(str(v) for v in intervals), degree=degree
     )
 
     print(rir_path)
