@@ -38,4 +38,4 @@ jobs:
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
           . ./tests/.data/download_mird.sh
-          python ./tests/.data/test_iva.py
+          python ./tests/bss/test_iva.py
