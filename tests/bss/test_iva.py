@@ -2,6 +2,9 @@ import os
 
 import numpy as np
 from scipy.io import loadmat, wavfile
+import scipy.signal as ss
+
+from pybss.bss import GradLaplaceIVA
 
 
 def _convolve_rir(source_path, rir, n_channels=2):
@@ -33,17 +36,45 @@ def _convolve_rirs(source_paths, rir_path, n_channels=2):
     return source_images
 
 
-def test_iva(root="./tests/.data", tag="dev1_female3"):
+def _create_dataset(root="./tests/.data", tag="dev1_female3"):
     source_paths = [
         os.path.join(root, "{}_src_1.wav".format(tag)),
         os.path.join(root, "{}_src_2.wav".format(tag)),
     ]
     rir_path = os.path.join(root, "{}_synthconv_130ms_5cm_filt.mat".format(tag))
-    n_channels = len(source_paths)
+    npz_path = os.path.join(root, "./source-images.npz")
+    n_channels = n_sources = len(source_paths)
 
-    source_images = _convolve_rirs(source_paths, rir_path, n_channels=n_channels)
+    if not os.path.exists(npz_path):
+        source_images = _convolve_rirs(source_paths, rir_path, n_channels=n_channels)
+        np.savez(npz_path, n_sources=n_sources, n_channels=n_channels, **source_images)
 
-    np.savez(os.path.join(root, "./source-images.npz"), **source_images)
+    return npz_path
+
+
+def test_iva(root="./tests/.data", tag="dev1_female3"):
+    npz_path = _create_dataset(root, tag=tag)
+
+    npz = np.load(npz_path)
+    waveform_src = np.stack([npz["src_1"][0], npz["src_2"][0]], axis=0)
+    waveform_mix = npz["src_1"] + npz["src_2"]
+    _, _, spectrogram_src = ss.stft(waveform_src, nperseg=2048, noverlap=1024, axis=-1)
+    _, _, spectrogram_mix = ss.stft(waveform_mix, nperseg=2048, noverlap=1024, axis=-1)
+
+    print(spectrogram_src.shape, spectrogram_mix.shape)
+
+    iva = GradLaplaceIVA(lr=0.01)
+    spectrogram_est = iva(spectrogram_mix)
+    print(spectrogram_est.shape)
+
+    print(iva.loss)
+
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.plot(range(1, len(iva.loss) + 1), iva.loss)
+    plt.savefig("./tests/.data/loss.png", bbox_inches="tight")
+    plt.close()
 
 
 if __name__ == "__main__":

@@ -46,3 +46,7 @@ jobs:
         run: |
           python ./tests/bss/test_iva.py
           python -c "import numpy as np; npz = np.load('./tests/.data/source-images.npz'); print(npz['src_1'].shape); print(npz['src_2'].shape)"
+      - name: Pytest
+        run: |
+          pytest --cov=./pybss --cov-report=xml
+  

@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 
 from ..algorithm.projection_back import projection_back
@@ -17,8 +19,18 @@ __algorithms_spatial__ = [
 ]
 
 
+def add_flooring(x, eps=EPS):
+    x[x < eps] = eps
+    return x
+
+
 class IVAbase:
-    def __init__(self, callbacks=None, should_record_loss=True, eps=EPS):
+    def __init__(self, floor_fn=None, callbacks=None, should_record_loss=True, eps=EPS):
+        if floor_fn is None:
+            self.floor_fn = partial(add_flooring, eps=eps)
+        else:
+            self.floor_fn = floor_fn
+
         if callbacks is not None:
             if callable(callbacks):
                 callbacks = [callbacks]
@@ -94,7 +106,7 @@ class IVAbase:
         return s.format(**self.__dict__)
 
     def update_once(self):
-        raise NotImplementedError("Implement 'update_once' function")
+        raise NotImplementedError("Implement 'update_once' method.")
 
     def separate(self, input, demix_filter):
         input = input.transpose(1, 0, 2)
@@ -119,6 +131,7 @@ class GradIVAbase(IVAbase):
     def __init__(
         self,
         lr=1e-1,
+        floor_fn=None,
         reference_id=0,
         callbacks=None,
         should_apply_projection_back=True,
@@ -126,7 +139,10 @@ class GradIVAbase(IVAbase):
         eps=EPS,
     ):
         super().__init__(
-            callbacks=callbacks, should_record_loss=should_record_loss, eps=eps
+            floor_fn=floor_fn,
+            callbacks=callbacks,
+            should_record_loss=should_record_loss,
+            eps=eps,
         )
 
         self.lr = lr
@@ -187,6 +203,7 @@ class GradLaplaceIVA(GradIVAbase):
     def __init__(
         self,
         lr=1e-1,
+        floor_fn=None,
         reference_id=0,
         callbacks=None,
         should_apply_projection_back=True,
@@ -195,6 +212,7 @@ class GradLaplaceIVA(GradIVAbase):
     ):
         super().__init__(
             lr=lr,
+            floor_fn=floor_fn,
             reference_id=reference_id,
             callbacks=callbacks,
             should_apply_projection_back=should_apply_projection_back,
