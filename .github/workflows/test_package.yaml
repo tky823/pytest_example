@@ -34,9 +34,15 @@ jobs:
         run: |
           python -c "import pybss; print(pybss.__version__)"
           python -c "from pybss.bss import GradLaplaceIVA"
-      - name: Test in Ubuntu & MacOS
+      - name: Download dataset (Ubuntu & MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
           . ./tests/scripts/download_sisec2011.sh
+      - name: Download dataset (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          ./tests/scripts/download_sisec2011.bat
+      - name: Test IVA
+        run: |
           python ./tests/bss/test_iva.py
           python -c "import numpy as np; npz = np.load('./tests/.data/source-images.npz'); print(npz['src_1'].shape); print(npz['src_2'].shape)"
