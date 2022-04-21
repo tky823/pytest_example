@@ -37,5 +37,6 @@ jobs:
       - name: Test in Ubuntu & MacOS
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
-          . ./tests/.data/download_mird.sh
+          . ./tests/scripts/download_sisec2011.sh
           python ./tests/bss/test_iva.py
+          ls ./tests/.data/*.npz
