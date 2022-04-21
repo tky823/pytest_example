@@ -1,3 +1,6 @@
+# For data
+.data/
+
 # For VSCode
 .vscode
 
