@@ -39,4 +39,4 @@ jobs:
         run: |
           . ./tests/scripts/download_sisec2011.sh
           python ./tests/bss/test_iva.py
-          ls ./tests/.data/*.npz
+          python -c "import numpy as np; npz = np.load('./tests/.data/source-images.npz'); print(npz["src_1"].shape); print(npz["src_2"].shape)"
