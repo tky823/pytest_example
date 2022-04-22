@@ -11,7 +11,7 @@ on:
       - develop
       - beta
 jobs:
-  pytest:
+  build:
     name: Run tests with pytest
     runs-on: ${{ matrix.os }}
     strategy:
@@ -42,10 +42,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           ./tests/scripts/download_sisec2011.bat
-      - name: Test IVA
-        run: |
-          python ./tests/bss/test_iva.py
-          python -c "import numpy as np; npz = np.load('./tests/.data/source-images.npz'); print(npz['src_1'].shape); print(npz['src_2'].shape)"
       - name: Pytest
         run: |
           pytest --cov=./pybss --cov-report=xml
