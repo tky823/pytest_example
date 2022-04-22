@@ -2,6 +2,7 @@ from functools import partial
 
 import numpy as np
 
+from ._flooring import max_flooring
 from ..algorithm.projection_back import projection_back
 
 EPS = 1e-12
@@ -19,15 +20,10 @@ __algorithms_spatial__ = [
 ]
 
 
-def add_flooring(x, eps=EPS):
-    x[x < eps] = eps
-    return x
-
-
 class IVAbase:
     def __init__(self, floor_fn=None, callbacks=None, should_record_loss=True, eps=EPS):
         if floor_fn is None:
-            self.floor_fn = partial(add_flooring, eps=eps)
+            self.floor_fn = partial(max_flooring, eps=eps)
         else:
             self.floor_fn = floor_fn
 
@@ -68,7 +64,8 @@ class IVAbase:
         else:
             W = self.demix_filter.copy()
             self.demix_filter = W
-        self.estimation = self.separate(X, demix_filter=W)
+
+        self.output = self.separate(X, demix_filter=W)
 
     def __call__(self, input, n_iter=100, **kwargs):
         self.input = input.copy()
@@ -110,13 +107,13 @@ class IVAbase:
 
     def separate(self, input, demix_filter):
         input = input.transpose(1, 0, 2)
-        estimation = demix_filter @ input
-        output = estimation.transpose(1, 0, 2)
+        output = demix_filter @ input
+        output = output.transpose(1, 0, 2)
 
         return output
 
-    def compute_demix_filter(self, estimation, input):
-        X, Y = input, estimation
+    def compute_demix_filter(self, output, input):
+        X, Y = input, output
         X_Hermite = X.transpose(1, 2, 0).conj()
         XX_Hermite = X.transpose(1, 0, 2) @ X_Hermite
         demix_filter = Y.transpose(1, 0, 2) @ X_Hermite @ np.linalg.inv(XX_Hermite)
@@ -150,40 +147,12 @@ class GradIVAbase(IVAbase):
         self.should_apply_projection_back = should_apply_projection_back
 
     def __call__(self, input, n_iter=100, **kwargs):
-        self.input = input
-
-        self._reset(**kwargs)
-
-        if self.should_record_loss:
-            loss = self.compute_negative_loglikelihood()
-            self.loss.append(loss)
-
-        if self.callbacks is not None:
-            for callback in self.callbacks:
-                callback(self)
-
-        for _ in range(n_iter):
-            self.update_once()
-
-            if self.should_record_loss:
-                loss = self.compute_negative_loglikelihood()
-                self.loss.append(loss)
-
-            if self.callbacks is not None:
-                for callback in self.callbacks:
-                    callback(self)
-
-        reference_id = self.reference_id
-        X, W = input, self.demix_filter
-        output = self.separate(X, demix_filter=W)
+        _ = super().__call__(input, n_iter=n_iter, **kwargs)
 
         if self.should_apply_projection_back:
-            scale = projection_back(output, reference=X[reference_id])
-            output = output * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
+            self.apply_projection_back()
 
-        self.estimation = output
-
-        return output
+        return self.output
 
     def __repr__(self):
         s = "GradIVA("
@@ -191,6 +160,20 @@ class GradIVAbase(IVAbase):
         s += ")"
 
         return s.format(**self.__dict__)
+
+    def apply_projection_back(self):
+        assert (
+            self.should_apply_projection_back
+        ), "Set should_apply_projection_back True."
+
+        reference_id = self.reference_id
+        X, W = self.input, self.demix_filter
+        output = self.separate(X, demix_filter=W)
+
+        scale = projection_back(output, reference=X[reference_id])
+        output = output * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
+
+        self.output = output
 
     def update_once(self):
         raise NotImplementedError("Implement 'update_once' method.")
@@ -230,7 +213,6 @@ class GradLaplaceIVA(GradIVAbase):
     def update_once(self):
         n_frames = self.n_frames
         lr = self.lr
-        eps = self.eps
 
         X = self.input
         W = self.demix_filter
@@ -245,7 +227,7 @@ class GradLaplaceIVA(GradIVAbase):
         Y = Y.transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
         P = np.abs(Y) ** 2
         denominator = np.sqrt(P.sum(axis=0))
-        denominator[denominator < eps] = eps
+        denominator = self.floor_fn(denominator)
         Phi = Y / denominator  # (n_bins, n_sources, n_frames)
 
         delta = (Phi @ X_Hermite) / n_frames - W_inverseHermite
@@ -255,7 +237,7 @@ class GradLaplaceIVA(GradIVAbase):
         Y = self.separate(X, demix_filter=W)
 
         self.demix_filter = W
-        self.estimation = Y
+        self.output = Y
 
     def compute_negative_loglikelihood(self):
         X, W = self.input, self.demix_filter
