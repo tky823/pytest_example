@@ -40,7 +40,7 @@ def _convolve_rirs(source_paths, rir_path, n_channels=2):
     return source_images
 
 
-def _create_dataset(root="./tests/.data", tag="dev1_female3"):
+def _create_dataset(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
     source_paths = [
         os.path.join(root, "{}_src_1.wav".format(tag)),
         os.path.join(root, "{}_src_2.wav".format(tag)),
@@ -56,7 +56,7 @@ def _create_dataset(root="./tests/.data", tag="dev1_female3"):
     return npz_path
 
 
-def test_fdica(root="./tests/.data", tag="dev1_female3"):
+def test_fdica(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
     _set_seed()
 
     ref_id = 0
