@@ -4,7 +4,7 @@ import numpy as np
 from scipy.io import loadmat, wavfile
 import scipy.signal as ss
 
-from pybss.bss import GradLaplaceIVA
+from pybss.bss import GradLaplaceFDICA
 
 
 def _set_seed(seed=42):
@@ -56,7 +56,7 @@ def _create_dataset(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
     return npz_path
 
 
-def test_iva(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
+def test_fdica(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
     _set_seed()
 
     ref_id = 0
@@ -78,7 +78,7 @@ def test_iva(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
         waveform_mix, nperseg=n_fft, noverlap=n_fft - hop_length, axis=-1
     )
 
-    iva = GradLaplaceIVA(lr=1e-2)
+    iva = GradLaplaceFDICA(lr=1e-2)
     spectrogram_est = iva(spectrogram_mix)
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."

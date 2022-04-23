@@ -1,3 +1,6 @@
 -r ./install.txt
 
 scipy
+
+pytest
+pytest-cov
