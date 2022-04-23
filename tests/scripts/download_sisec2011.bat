@@ -1,7 +1,7 @@
 @echo off
 
 set root=tests\.data
-set sisec2011_dir=%root%/SiSEC2011
+set sisec2011_dir=%root%\SiSEC2011
 set filename=dev1.zip
 
 mkdir %sisec2011_dir%
