@@ -12,13 +12,14 @@ EPS = 1e-12
 class FDICAbase:
     def __init__(self, floor_fn=None, callbacks=None, should_record_loss=True, eps=EPS):
         if floor_fn is None:
-            self.floor_fn = partial(max_flooring, eps=eps)
+            self.floor_fn = partial(max_flooring, threshold=eps)
         else:
             self.floor_fn = floor_fn
 
         if callbacks is not None:
             if callable(callbacks):
                 callbacks = [callbacks]
+
             self.callbacks = callbacks
         else:
             self.callbacks = None
@@ -81,9 +82,9 @@ class FDICAbase:
                     callback(self)
 
         X, W = input, self.demix_filter
-        output = self.separate(X, demix_filter=W)
+        self.output = self.separate(X, demix_filter=W)
 
-        return output
+        return self.output
 
     def __repr__(self):
         s = "FDICA("
@@ -141,7 +142,14 @@ class FDICAbase:
 
 class GradFDICAbase(FDICAbase):
     def __init__(
-        self, lr=1e-1, reference_id=0, callbacks=None, should_record_loss=True, eps=EPS
+        self,
+        lr=1e-1,
+        reference_id=0,
+        callbacks=None,
+        should_apply_projection_back=True,
+        should_solve_permutation=True,
+        should_record_loss=True,
+        eps=EPS,
     ):
         super().__init__(
             callbacks=callbacks, should_record_loss=should_record_loss, eps=eps
@@ -149,6 +157,8 @@ class GradFDICAbase(FDICAbase):
 
         self.lr = lr
         self.reference_id = reference_id
+        self.should_apply_projection_back = should_apply_projection_back
+        self.should_solve_permutation = should_solve_permutation
 
     def __call__(self, input, n_iter=100, **kwargs):
         self.input = input
@@ -174,21 +184,25 @@ class GradFDICAbase(FDICAbase):
                 for callback in self.callbacks:
                     callback(self)
 
-        self.solve_permutation()
+        if self.should_solve_permutation:
+            self.solve_permutation()
 
-        self.apply_projection_back()
+        if self.should_apply_projection_back:
+            self.apply_projection_back()
 
         return self.output
 
     def apply_projection_back(self):
+        assert (
+            self.should_apply_projection_back
+        ), "Set should_apply_projection_back True."
+
         reference_id = self.reference_id
         X, W = self.input, self.demix_filter
-
         Y = self.separate(X, demix_filter=W)
 
         scale = projection_back(Y, reference=X[reference_id])
-        output = Y * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
-        self.output = output
+        self.output = Y * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
 
     def __repr__(self):
         s = "GradFDICA("
@@ -198,19 +212,24 @@ class GradFDICAbase(FDICAbase):
         return s.format(**self.__dict__)
 
     def compute_negative_loglikelihood(self):
-        raise NotImplementedError(
-            "Implement 'compute_negative_loglikelihood' function."
-        )
+        raise NotImplementedError("Implement 'compute_negative_loglikelihood' method.")
 
 
 class GradLaplaceFDICA(GradFDICAbase):
     def __init__(
-        self, lr=1e-1, reference_id=0, callbacks=None, should_record_loss=True, eps=EPS
+        self,
+        lr=1e-1,
+        reference_id=0,
+        callbacks=None,
+        should_solve_permutation=True,
+        should_record_loss=True,
+        eps=EPS,
     ):
         super().__init__(
             lr=lr,
             reference_id=reference_id,
             callbacks=callbacks,
+            should_solve_permutation=should_solve_permutation,
             should_record_loss=should_record_loss,
             eps=eps,
         )
@@ -219,8 +238,7 @@ class GradLaplaceFDICA(GradFDICAbase):
         n_frames = self.n_frames
         lr = self.lr
 
-        X = self.input
-        W = self.demix_filter
+        X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
 
         X_Hermite = X.transpose(1, 2, 0).conj()  # (n_bins, n_frames, n_sources)
@@ -266,6 +284,7 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         reference_id=0,
         is_holonomic=True,
         callbacks=None,
+        should_solve_permutation=True,
         should_record_loss=True,
         eps=EPS,
     ):
@@ -273,6 +292,7 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
             lr=lr,
             reference_id=reference_id,
             callbacks=callbacks,
+            should_solve_permutation=should_solve_permutation,
             should_record_loss=should_record_loss,
             eps=eps,
         )
@@ -292,8 +312,7 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         n_frames = self.n_frames
         lr = self.lr
 
-        X = self.input
-        W = self.demix_filter
+        X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
         eye = np.eye(n_sources, n_channels, dtype=np.complex128)
 

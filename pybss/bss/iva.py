@@ -23,13 +23,14 @@ __algorithms_spatial__ = [
 class IVAbase:
     def __init__(self, floor_fn=None, callbacks=None, should_record_loss=True, eps=EPS):
         if floor_fn is None:
-            self.floor_fn = partial(max_flooring, eps=eps)
+            self.floor_fn = partial(max_flooring, threshold=eps)
         else:
             self.floor_fn = floor_fn
 
         if callbacks is not None:
             if callable(callbacks):
                 callbacks = [callbacks]
+
             self.callbacks = callbacks
         else:
             self.callbacks = None
@@ -92,9 +93,9 @@ class IVAbase:
                     callback(self)
 
         X, W = input, self.demix_filter
-        output = self.separate(X, demix_filter=W)
+        self.output = self.separate(X, demix_filter=W)
 
-        return output
+        return self.output
 
     def __repr__(self):
         s = "IVA("
@@ -147,7 +148,7 @@ class GradIVAbase(IVAbase):
         self.should_apply_projection_back = should_apply_projection_back
 
     def __call__(self, input, n_iter=100, **kwargs):
-        _ = super().__call__(input, n_iter=n_iter, **kwargs)
+        self.output = super().__call__(input, n_iter=n_iter, **kwargs)
 
         if self.should_apply_projection_back:
             self.apply_projection_back()
@@ -168,12 +169,11 @@ class GradIVAbase(IVAbase):
 
         reference_id = self.reference_id
         X, W = self.input, self.demix_filter
-        output = self.separate(X, demix_filter=W)
+        Y = self.separate(X, demix_filter=W)
 
-        scale = projection_back(output, reference=X[reference_id])
-        output = output * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
+        scale = projection_back(Y, reference=X[reference_id])
 
-        self.output = output
+        self.output = Y * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
 
     def update_once(self):
         raise NotImplementedError("Implement 'update_once' method.")
@@ -214,8 +214,7 @@ class GradLaplaceIVA(GradIVAbase):
         n_frames = self.n_frames
         lr = self.lr
 
-        X = self.input
-        W = self.demix_filter
+        X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
 
         X_Hermite = X.transpose(1, 2, 0).conj()  # (n_bins, n_frames, n_sources)
@@ -231,6 +230,69 @@ class GradLaplaceIVA(GradIVAbase):
         Phi = Y / denominator  # (n_bins, n_sources, n_frames)
 
         delta = (Phi @ X_Hermite) / n_frames - W_inverseHermite
+        W = W - lr * delta  # (n_bins, n_sources, n_channels)
+
+        X = self.input
+        Y = self.separate(X, demix_filter=W)
+
+        self.demix_filter = W
+        self.output = Y
+
+    def compute_negative_loglikelihood(self):
+        X, W = self.input, self.demix_filter
+        Y = self.separate(X, demix_filter=W)
+        P = np.sum(np.abs(Y) ** 2, axis=1)
+        logdetW = np.log(np.abs(np.linalg.det(W))).sum()
+        loss = 2 * np.sum(np.sqrt(P), axis=0).mean() - 2 * logdetW
+
+        return loss
+
+
+class NaturalGradLaplaceIVA(GradIVAbase):
+    def __init__(
+        self,
+        lr=1e-1,
+        floor_fn=None,
+        reference_id=0,
+        callbacks=None,
+        should_apply_projection_back=True,
+        should_record_loss=True,
+        eps=EPS,
+    ):
+        super().__init__(
+            lr=lr,
+            floor_fn=floor_fn,
+            reference_id=reference_id,
+            callbacks=callbacks,
+            should_apply_projection_back=should_apply_projection_back,
+            should_record_loss=should_record_loss,
+            eps=eps,
+        )
+
+    def __repr__(self):
+        s = "NaturalGradLaplaceIVA("
+        s += "lr={lr}"
+        s += ")"
+
+        return s.format(**self.__dict__)
+
+    def update_once(self):
+        n_sources, n_channels = self.n_sources, self.n_channels
+        n_frames = self.n_frames
+        lr = self.lr
+
+        X, W = self.input, self.demix_filter
+        Y = self.separate(X, demix_filter=W)
+        eye = np.eye(n_sources, n_channels, dtype=np.complex128)
+
+        Y = Y.transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
+        Y_Hermite = Y.transpose(0, 2, 1).conj()  # (n_bins, n_frames, n_sources)
+        P = np.abs(Y) ** 2
+        denominator = np.sqrt(P.sum(axis=0))
+        denominator = self.floor_fn(denominator)
+        Phi = Y / denominator  # (n_bins, n_sources, n_frames)
+
+        delta = ((Phi @ Y_Hermite) / n_frames - eye) @ W
         W = W - lr * delta  # (n_bins, n_sources, n_channels)
 
         X = self.input

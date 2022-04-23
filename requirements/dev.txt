@@ -1,6 +1,7 @@
 -r ./install.txt
 
 scipy
+matplotlib
 
 pytest
 pytest-cov

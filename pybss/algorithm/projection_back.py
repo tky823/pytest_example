@@ -1,8 +1,9 @@
 import numpy as np
 
 
-def projection_back(Y, reference):
+def projection_back(input, reference):
     # TODO: Use pseudo inverse ?
+    Y = input
     n_dims = reference.ndim
 
     if n_dims == 2:
