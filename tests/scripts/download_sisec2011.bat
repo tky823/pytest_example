@@ -6,4 +6,4 @@ set filename=dev1.zip
 
 mkdir %sisec2011_dir%
 bitsadmin /transfer "Download" http://www.irisa.fr/metiss/SiSEC10/underdetermined/%filename% %CD%\%root%\%filename%
-call powershell -command "Expand-Archive %root%\%filename% %sisec2011_dir%"
+call powershell -command "Expand-Archive %sisec2011_dir%\%filename% %sisec2011_dir%"
