@@ -1,0 +1,4 @@
+-r ./dev.txt
+
+sphinx
+sphinx_rtd_theme

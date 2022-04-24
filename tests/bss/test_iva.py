@@ -1,84 +1,126 @@
-import os
-
-import numpy as np
-from scipy.io import loadmat, wavfile
 import scipy.signal as ss
 
-from pybss.bss import GradLaplaceIVA
+from pybss.bss import GradLaplaceIVA, NaturalGradLaplaceIVA
+from tests.bss.create_dataset import set_seed, create_sisec2011_mird_spectrograms
 
 
-def _set_seed(seed=42):
-    np.random.seed(seed)
+def test_grad_iva(
+    root="./tests/.data/SiSEC2011+MIRD",
+    sisec2011_root="./tests/.data/SiSEC2011",
+    mird_root="./tests/.data/MIRD",
+    tag="dev1_female3",
+):
+    set_seed()
 
-
-def _convolve_rir(source_path, rir, n_channels=2):
-    _, source = wavfile.read(source_path)
-    n_samples = len(source)
-
-    source_image = []
-
-    for mic_idx in range(n_channels):
-        _source_image = np.convolve(source, rir[mic_idx])
-        source_image.append(_source_image[:n_samples])
-
-    source_image = np.stack(source_image, axis=0)  # (n_channels, n_samples)
-
-    return source_image
-
-
-def _convolve_rirs(source_paths, rir_path, n_channels=2):
-    rir_mat = loadmat(rir_path)
-    rir = rir_mat["A"]
-
-    source_images = {}
-
-    for src_idx, source_path in enumerate(source_paths):
-        source_images["src_{}".format(src_idx + 1)] = _convolve_rir(
-            source_path, rir=rir[:, src_idx, :], n_channels=n_channels
-        )
-
-    return source_images
-
-
-def _create_dataset(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
-    source_paths = [
-        os.path.join(root, "{}_src_1.wav".format(tag)),
-        os.path.join(root, "{}_src_2.wav".format(tag)),
-    ]
-    rir_path = os.path.join(root, "{}_synthconv_130ms_5cm_filt.mat".format(tag))
-    npz_path = os.path.join(root, "./source-images.npz")
-    n_channels = n_sources = len(source_paths)
-
-    if not os.path.exists(npz_path):
-        source_images = _convolve_rirs(source_paths, rir_path, n_channels=n_channels)
-        np.savez(npz_path, n_sources=n_sources, n_channels=n_channels, **source_images)
-
-    return npz_path
-
-
-def test_iva(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
-    _set_seed()
-
+    n_fft, hop_length = 4096, 2048
+    window = "hann"
     ref_id = 0
-    n_fft, hop_length = 2048, 1024
-    npz_path = _create_dataset(root, tag=tag)
 
-    npz = np.load(npz_path)
-    n_sources = npz["n_sources"]
-    waveform_src = []
-
-    for src_idx in range(n_sources):
-        waveform_src.append(npz["src_{}".format(src_idx + 1)])
-
-    waveform_src = np.stack(waveform_src, axis=0)  # (n_sources, n_channels, n_samples)
-    waveform_mix = np.sum(waveform_src, axis=0)  # (n_channels, n_samples)
-    waveform_src = waveform_src[:, ref_id, :]  # (n_sources, n_samples)
-
-    _, _, spectrogram_mix = ss.stft(
-        waveform_mix, nperseg=n_fft, noverlap=n_fft - hop_length, axis=-1
+    spectrogram_mix = create_sisec2011_mird_spectrograms(
+        root,
+        sisec2011_root=sisec2011_root,
+        mird_root=mird_root,
+        tag=tag,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        window=window,
+        ref_id=ref_id,
     )
 
-    iva = GradLaplaceIVA(lr=1e-2)
+    n_sources = spectrogram_mix.shape[0]
+
+    iva = GradLaplaceIVA(lr=1e-1)
     spectrogram_est = iva(spectrogram_mix)
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."
+
+    _, waveform_est = ss.istft(
+        spectrogram_est, nperseg=n_fft, noverlap=n_fft - hop_length, window=window
+    )
+
+    import os
+    from scipy.io import wavfile
+    import matplotlib.pyplot as plt
+
+    save_dir = os.path.join(root, "IVA/GradLaplaceIVA")
+    os.makedirs(save_dir, exist_ok=True)
+
+    for src_idx in range(n_sources):
+        wav_path = os.path.join(save_dir, "src_{}.wav".format(src_idx + 1))
+        png_path = os.path.join(save_dir, "src_{}.png".format(src_idx + 1))
+        wavfile.write(
+            wav_path, 16000, waveform_est[src_idx],
+        )
+
+        plt.figure()
+        plt.plot(waveform_est[src_idx])
+        plt.savefig(png_path, bbox_inches="tight")
+        plt.close()
+
+    png_path = os.path.join(save_dir, "loss.png")
+
+    plt.figure()
+    plt.plot(iva.loss)
+    plt.savefig(png_path, bbox_inches="tight")
+    plt.close()
+
+
+def test_natural_grad_iva(
+    root="./tests/.data/SiSEC2011+MIRD",
+    sisec2011_root="./tests/.data/SiSEC2011",
+    mird_root="./tests/.data/MIRD",
+    tag="dev1_female3",
+):
+    set_seed()
+
+    n_fft, hop_length = 4096, 2048
+    window = "hann"
+    ref_id = 0
+
+    spectrogram_mix = create_sisec2011_mird_spectrograms(
+        root,
+        sisec2011_root=sisec2011_root,
+        mird_root=mird_root,
+        tag=tag,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        window=window,
+        ref_id=ref_id,
+    )
+
+    n_sources = spectrogram_mix.shape[0]
+
+    iva = NaturalGradLaplaceIVA(lr=1e-1)
+    spectrogram_est = iva(spectrogram_mix)
+
+    assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."
+
+    _, waveform_est = ss.istft(
+        spectrogram_est, nperseg=n_fft, noverlap=n_fft - hop_length, window=window
+    )
+
+    import os
+    from scipy.io import wavfile
+    import matplotlib.pyplot as plt
+
+    save_dir = os.path.join(root, "IVA/NaturalGradLaplaceIVA")
+    os.makedirs(save_dir, exist_ok=True)
+
+    for src_idx in range(n_sources):
+        wav_path = os.path.join(save_dir, "src_{}.wav".format(src_idx + 1))
+        png_path = os.path.join(save_dir, "src_{}.png".format(src_idx + 1))
+        wavfile.write(
+            wav_path, 16000, waveform_est[src_idx],
+        )
+
+        plt.figure()
+        plt.plot(waveform_est[src_idx])
+        plt.savefig(png_path, bbox_inches="tight")
+        plt.close()
+
+    png_path = os.path.join(save_dir, "loss.png")
+
+    plt.figure()
+    plt.plot(iva.loss)
+    plt.savefig(png_path, bbox_inches="tight")
+    plt.close()

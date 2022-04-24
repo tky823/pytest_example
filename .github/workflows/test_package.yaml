@@ -1,4 +1,4 @@
-name: test package
+name: tests
 on:
   push:
     branches:
@@ -30,20 +30,18 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements/dev.txt
           pip install -e .
-      - name: Run
-        run: |
-          python -c "import pybss; print(pybss.__version__)"
-          python -c "from pybss.bss import GradLaplaceIVA"
       - name: Download dataset (Ubuntu & MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
           . ./tests/scripts/download_sisec2011.sh
+          . ./tests/scripts/download_mird.sh
       - name: Download dataset (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           ./tests/scripts/download_sisec2011.bat
+          ./tests/scripts/download_mird.bat
       - name: Pytest
         run: |
           pytest --cov=./pybss --cov-report=xml
-      - name: Upload Coverage to Codecov
+      - name: Upload coverage to codecov
         uses: codecov/codecov-action@v2

@@ -6,7 +6,7 @@ filename="dev1.zip"
 
 wget -q -P "${root}/" "http://www.irisa.fr/metiss/SiSEC10/underdetermined/${filename}"
 
-if [ !-d "${sisec2011_dir}/" ]; then
+if [ ! -d "${sisec2011_dir}/" ]; then
     mkdir -p "${sisec2011_dir}/"
 fi
 
