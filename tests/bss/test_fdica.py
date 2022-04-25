@@ -1,20 +1,39 @@
-import scipy.signal as ss
+from typing import List, Callable, Union
 
-from pybss.bss import GradLaplaceFDICA
+import pytest
+
+from pybss.bss.fdica import GradLaplaceFDICA, NaturalGradLaplaceFDICA
 from tests.bss.create_dataset import set_seed, create_sisec2011_mird_spectrograms
 
+root = "./tests/.data/SiSEC2011+MIRD"
+sisec2011_root = "./tests/.data/SiSEC2011"
+mird_root = "./tests/.data/MIRD"
+tag = "dev1_female3"
 
-def test_fdica(
-    root="./tests/.data/SiSEC2011+MIRD",
-    sisec2011_root="./tests/.data/SiSEC2011",
-    mird_root="./tests/.data/MIRD",
-    tag="dev1_female3",
-):
+n_fft, hop_length = 4096, 2048
+window = "hann"
+ref_id = 0
+n_iter = 5
+
+
+def dummy_function(_) -> None:
+    pass
+
+
+class DummyCallback:
+    def __init__(self) -> None:
+        pass
+
+    def __call__(self, _) -> None:
+        pass
+
+
+callbacks = [None, dummy_function, [DummyCallback(), dummy_function]]
+
+
+@pytest.mark.parametrize("callbacks", callbacks)
+def test_grad_fdica(callbacks: Union[Callable, List[Callable]]) -> None:
     set_seed()
-
-    n_fft, hop_length = 4096, 2048
-    window = "hann"
-    ref_id = 0
 
     spectrogram_mix = create_sisec2011_mird_spectrograms(
         root,
@@ -27,32 +46,28 @@ def test_fdica(
         ref_id=ref_id,
     )
 
-    n_sources = spectrogram_mix.shape[0]
-
-    fdica = GradLaplaceFDICA(lr=1e-1)
-    spectrogram_est = fdica(spectrogram_mix)
+    fdica = GradLaplaceFDICA(step_size=1e-1, callbacks=callbacks)
+    spectrogram_est = fdica(spectrogram_mix, n_iter=n_iter)
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."
 
-    _, waveform_est = ss.istft(
-        spectrogram_est, nperseg=n_fft, noverlap=n_fft - hop_length, window=window
+
+@pytest.mark.parametrize("callbacks", callbacks)
+def test_natural_grad_fdica(callbacks: Union[Callable, List[Callable]]) -> None:
+    set_seed()
+
+    spectrogram_mix = create_sisec2011_mird_spectrograms(
+        root,
+        sisec2011_root=sisec2011_root,
+        mird_root=mird_root,
+        tag=tag,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        window=window,
+        ref_id=ref_id,
     )
 
-    import os
-    from scipy.io import wavfile
-    import matplotlib.pyplot as plt
+    fdica = NaturalGradLaplaceFDICA(step_size=1e-1, callbacks=callbacks)
+    spectrogram_est = fdica(spectrogram_mix, n_iter=n_iter)
 
-    save_dir = os.path.join(root, "FDICA/GradLaplaceFDICA")
-    os.makedirs(save_dir, exist_ok=True)
-
-    for src_idx in range(n_sources):
-        wav_path = os.path.join(save_dir, "src_{}.wav".format(src_idx + 1))
-        png_path = os.path.join(save_dir, "src_{}.png".format(src_idx + 1))
-        wavfile.write(
-            wav_path, 16000, waveform_est[src_idx],
-        )
-
-        plt.figure()
-        plt.plot(waveform_est[src_idx])
-        plt.savefig(png_path, bbox_inches="tight")
-        plt.close()
+    assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."

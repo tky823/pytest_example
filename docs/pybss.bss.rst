@@ -1,6 +1,13 @@
-BSS (Blind Source Separation)
-=============================
+pybss.bss
+=========
 
-.. autofunction:: pybss.bss.GradLaplaceIVA
+``pybss.bss`` provides various blind source separation methods.
 
-.. autofunction:: pybss.bss.NaturalGradLaplaceIVA
+Submodules
+~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
+   pybss.bss.fdica
+   pybss.bss.iva

@@ -1,15 +1,16 @@
 import os
+from typing import List, Dict, Any, Optional
 
 import numpy as np
 import scipy.signal as ss
 from scipy.io import wavfile, loadmat
 
 
-def set_seed(seed=42):
+def set_seed(seed: Optional[int] = 42) -> None:
     np.random.seed(seed)
 
 
-def _resample_mird_rir(rir_path, sample_rate_out):
+def _resample_mird_rir(rir_path: str, sample_rate_out: int) -> np.ndarray:
     sample_rate_in = 48000
     rir_mat = loadmat(rir_path)
     rir = rir_mat["impulse_response"]
@@ -18,7 +19,9 @@ def _resample_mird_rir(rir_path, sample_rate_out):
     return rir_resampled.T
 
 
-def _convolve_rir(source_path, rir, n_channels=2):
+def _convolve_rir(
+    source_path: str, rir: np.ndarray, n_channels: Optional[int] = 2
+) -> np.ndarray:
     _, source = wavfile.read(source_path)
     source = source / 2 ** 15
     n_samples = len(source)
@@ -34,7 +37,9 @@ def _convolve_rir(source_path, rir, n_channels=2):
     return source_image
 
 
-def _convolve_sisec2011_rirs(source_paths, rir_path, n_channels=2):
+def _convolve_sisec2011_rirs(
+    source_paths: str, rir_path: str, n_channels: Optional[int] = 2
+) -> Dict[str, Any]:
     rir_mat = loadmat(rir_path)
     rir = rir_mat["A"]
 
@@ -48,7 +53,12 @@ def _convolve_sisec2011_rirs(source_paths, rir_path, n_channels=2):
     return source_images
 
 
-def _convolve_mird_rirs(source_paths, rir_paths, channels=[3, 4], n_samples=None):
+def _convolve_mird_rirs(
+    source_paths: str,
+    rir_paths: List[str],
+    channels: Optional[List[int]] = [3, 4],
+    n_samples: Optional[int] = None,
+) -> Dict[str, Any]:
     assert n_samples is not None, "Specify `n_samples`."
 
     source_images = {}
@@ -63,7 +73,9 @@ def _convolve_mird_rirs(source_paths, rir_paths, channels=[3, 4], n_samples=None
     return source_images
 
 
-def create_sisec2011_dataset(root="./tests/.data/SiSEC2011", tag="dev1_female3"):
+def create_sisec2011_dataset(
+    root: Optional[str] = "./tests/.data/SiSEC2011", tag: Optional[str] = "dev1_female3"
+) -> str:
     source_paths = [
         os.path.join(root, "{}_src_1.wav".format(tag)),
         os.path.join(root, "{}_src_2.wav".format(tag)),
@@ -82,12 +94,12 @@ def create_sisec2011_dataset(root="./tests/.data/SiSEC2011", tag="dev1_female3")
 
 
 def create_sisec2011_mird_dataset(
-    root="./tests/.data/SiSEC2011+MIRD",
-    sisec2011_root="./tests/.data/SiSEC2011",
-    mird_root="./tests/.data/MIRD",
-    tag="dev1_female3",
-    n_channels=3,
-):
+    root: Optional[str] = "./tests/.data/SiSEC2011+MIRD",
+    sisec2011_root: Optional[str] = "./tests/.data/SiSEC2011",
+    mird_root: Optional[str] = "./tests/.data/MIRD",
+    tag: Optional[str] = "dev1_female3",
+    n_channels: Optional[int] = 3,
+) -> str:
     sample_rate = 16000
     duration = 0.160
     n_samples = int(sample_rate * duration)
@@ -134,15 +146,15 @@ def create_sisec2011_mird_dataset(
 
 
 def create_sisec2011_mird_spectrograms(
-    root="./tests/.data/SiSEC2011+MIRD",
-    sisec2011_root="./tests/.data/SiSEC2011",
-    mird_root="./tests/.data/MIRD",
-    tag="dev1_female3",
-    n_fft=4096,
-    hop_length=2048,
-    window="hann",
-    ref_id=0,
-):
+    root: Optional[str] = "./tests/.data/SiSEC2011+MIRD",
+    sisec2011_root: Optional[str] = "./tests/.data/SiSEC2011",
+    mird_root: Optional[str] = "./tests/.data/MIRD",
+    tag: Optional[str] = "dev1_female3",
+    n_fft: Optional[int] = 4096,
+    hop_length: Optional[int] = 2048,
+    window: Optional[str] = "hann",
+    ref_id: Optional[int] = 0,
+) -> np.ndarray:
     npz_path = create_sisec2011_mird_dataset(
         root, sisec2011_root=sisec2011_root, mird_root=mird_root, tag=tag
     )

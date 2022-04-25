@@ -6,11 +6,8 @@
 Welcome to pybss's documentation!
 =================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-.. automodule:: pybss
+Contents
+--------
 
 .. toctree::
    :maxdepth: 1
@@ -19,7 +16,7 @@ Welcome to pybss's documentation!
    api
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
