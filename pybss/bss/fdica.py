@@ -1,20 +1,30 @@
 from functools import partial
 import itertools
+from typing import List, Callable, Optional, Union
 
 import numpy as np
 
 from ._flooring import max_flooring
 from ..algorithm.projection_back import projection_back
 
+STEP_SIZE = 1e-1
 EPS = 1e-12
+
+__all__ = ["GradLaplaceFDICA", "NaturalGradLaplaceFDICA"]
 
 
 class FDICAbase:
-    def __init__(self, floor_fn=None, callbacks=None, should_record_loss=True, eps=EPS):
-        if floor_fn is None:
-            self.floor_fn = partial(max_flooring, threshold=eps)
+    def __init__(
+        self,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        callbacks: Optional[List[Callable[["FDICAbase"], None]]] = None,
+        should_record_loss: Optional[bool] = True,
+        eps: Optional[float] = EPS,
+    ) -> None:
+        if flooring_fn is None:
+            self.flooring_fn = partial(max_flooring, threshold=eps)
         else:
-            self.floor_fn = floor_fn
+            self.flooring_fn = flooring_fn
 
         if callbacks is not None:
             if callable(callbacks):
@@ -34,7 +44,7 @@ class FDICAbase:
         else:
             self.loss = None
 
-    def _reset(self, **kwargs):
+    def _reset(self, **kwargs) -> None:
         assert self.input is not None, "Specify data!"
 
         for key in kwargs.keys():
@@ -52,12 +62,26 @@ class FDICAbase:
             W = np.eye(n_sources, n_channels, dtype=np.complex128)
             self.demix_filter = np.tile(W, reps=(n_bins, 1, 1))
         else:
-            W = self.demix_filter.copy()
-            self.demix_filter = W
+            # To avoid overwriting `demix_filter` given by keyword arguments.
+            self.demix_filter = self.demix_filter.copy()
 
         self.output = self.separate(X, demix_filter=W)
 
-    def __call__(self, input, n_iter=100, **kwargs):
+    def __call__(
+        self, input: np.ndarray, n_iter: Optional[int] = 100, **kwargs
+    ) -> np.ndarray:
+        """Separate multichannel signal by FDICA.
+
+        Args:
+            input (``numpy.ndarray``):
+                Mixture spectrogram with shape of (n_channels, n_bins, n_frames).
+            n_iter (``Optional[int]``):
+                Number of iterations. Default: ``100``.
+
+        Returns:
+            ``numpy.ndarray``:
+                Separated spectrogram with shape of (n_channels, n_bins, n_frames).
+        """
         self.input = input
 
         self._reset(**kwargs)
@@ -86,23 +110,35 @@ class FDICAbase:
 
         return self.output
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = "FDICA("
         s += ")"
 
         return s.format(**self.__dict__)
 
-    def update_once(self):
+    def update_once(self) -> None:
         raise NotImplementedError("Implement 'update' method.")
 
-    def separate(self, input, demix_filter):
+    def separate(self, input: np.ndarray, demix_filter: np.ndarray) -> np.ndarray:
+        """Separate ``input`` using ``demixing_filter``.
+
+        Args:
+            input (``numpy.ndarray``):
+                Mixture spectrogram.
+            demix_filter (``numpy.ndarray``):
+                Demixing filters to separate signal.
+
+        Returns:
+            ``numpy.ndarray``:
+                Separated spectrogram.
+        """
         input = input.transpose(1, 0, 2)
         output = demix_filter @ input
         output = output.transpose(1, 0, 2)
 
         return output
 
-    def solve_permutation(self):
+    def solve_permutation(self) -> None:
         n_sources, n_bins = self.n_sources, self.n_bins
 
         permutations = list(itertools.permutations(range(n_sources)))
@@ -112,7 +148,7 @@ class FDICAbase:
 
         P = np.abs(Y).transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
         norm = np.sqrt(np.sum(P ** 2, axis=1, keepdims=True))
-        norm = self.floor_fn(norm)
+        norm = self.flooring_fn(norm)
         P = P / norm  # (n_bins, n_sources, n_frames)
         correlation = np.sum(P @ P.transpose(0, 2, 1), axis=(1, 2))  # (n_sources,)
         indices = np.argsort(correlation)
@@ -143,24 +179,47 @@ class FDICAbase:
 class GradFDICAbase(FDICAbase):
     def __init__(
         self,
-        lr=1e-1,
-        reference_id=0,
-        callbacks=None,
-        should_apply_projection_back=True,
-        should_solve_permutation=True,
-        should_record_loss=True,
-        eps=EPS,
-    ):
+        step_size: Optional[float] = STEP_SIZE,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        reference_id: Optional[int] = 0,
+        callbacks: Optional[
+            Union[
+                Callable[["GradFDICAbase"], None],
+                List[Callable[["GradFDICAbase"], None]],
+            ]
+        ] = None,
+        should_apply_projection_back: Optional[bool] = True,
+        should_solve_permutation: Optional[bool] = True,
+        should_record_loss: Optional[bool] = True,
+        eps: Optional[float] = EPS,
+    ) -> None:
         super().__init__(
-            callbacks=callbacks, should_record_loss=should_record_loss, eps=eps
+            flooring_fn=flooring_fn,
+            callbacks=callbacks,
+            should_record_loss=should_record_loss,
+            eps=eps,
         )
 
-        self.lr = lr
+        self.step_size = step_size
         self.reference_id = reference_id
         self.should_apply_projection_back = should_apply_projection_back
         self.should_solve_permutation = should_solve_permutation
 
-    def __call__(self, input, n_iter=100, **kwargs):
+    def __call__(
+        self, input: np.ndarray, n_iter: Optional[int] = 100, **kwargs
+    ) -> np.ndarray:
+        """Separate multichannel signal by FDICA using gradient descent.
+
+        Args:
+            input (``numpy.ndarray``):
+                Mixture spectrogram with shape of (n_channels, n_bins, n_frames).
+            n_iter (``Optional[int]``):
+                Number of iterations. Default: ``100``.
+
+        Returns:
+            ``numpy.ndarray``:
+                Separated spectrogram with shape of (n_channels, n_bins, n_frames).
+        """
         self.input = input
 
         self._reset(**kwargs)
@@ -192,7 +251,9 @@ class GradFDICAbase(FDICAbase):
 
         return self.output
 
-    def apply_projection_back(self):
+    def apply_projection_back(self) -> None:
+        """Apply projection back to separated signal.
+        """
         assert (
             self.should_apply_projection_back
         ), "Set should_apply_projection_back True."
@@ -204,29 +265,69 @@ class GradFDICAbase(FDICAbase):
         scale = projection_back(Y, reference=X[reference_id])
         self.output = Y * scale[..., np.newaxis]  # (n_sources, n_bins, n_frames)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = "GradFDICA("
-        s += "lr={lr}"
+        s += "step_size={step_size}"
         s += ")"
 
         return s.format(**self.__dict__)
 
-    def compute_negative_loglikelihood(self):
-        raise NotImplementedError("Implement 'compute_negative_loglikelihood' method.")
-
 
 class GradLaplaceFDICA(GradFDICAbase):
+    """Frequency-domain independent component analysis
+    on Laplacian distribution using gradient descent [1]_.
+
+    Args:
+        step_size (``Optional[float]``):
+            Step size of gradient descent. Default: ``{STEP_SIZE}``.
+        flooring_fn (``Optional[Callable[[numpy.ndarray], numpy.ndarray]]``):
+            Flooring function for numerical stability. Default: None.
+        reference_id (``Optional[int]``):
+            Reference microphone index for projection back. Default: ``0``.
+        callbacks (``Optional[List[Callable[[GradLaplaceFDICA], None]]]``):
+            Callback function(s). Default: None.
+        should_solve_permutation (``Optional[bool]``):
+            Solve permutation after updates of demixing filters. Default: ``True``.
+        should_record_loss (``Optional[bool]``)
+            Record loss. Default: ``True``.
+        eps (``Optional[float]``):
+            Epsilon value for numerical stability. Default: ``{EPS}``.
+
+    Examples:
+        >>> import soundfile as sf
+        >>> import scipy.signal as ss
+        >>> from pybss.bss.fdica import GradLaplaceFDICA
+        >>> waveform_mix, _ = sf.read("sample-2ch.wav")
+        >>> fdica = GradLaplaceFDICA()
+        >>> _, _, spectrogram_mix = ss.stft(waveform_mix.T, nperseg=4096, noverlap=2048)
+        >>> spectrogram_est = fdica(spectrogram_mix)
+        >>> print(spectrogram_mix.shape, spectrogram_est.shape)
+        (2, 2049, 80), (2, 2049, 80)
+
+    .. rubric:: References
+
+    .. [1] H. Sawada et al., *Underdetermined Convolutive Blind Source Separation
+        via Frequency Bin-Wise Clustering and Permutation Alignment*, 2011.
+    """
+
     def __init__(
         self,
-        lr=1e-1,
-        reference_id=0,
-        callbacks=None,
-        should_solve_permutation=True,
-        should_record_loss=True,
-        eps=EPS,
-    ):
+        step_size: Optional[float] = STEP_SIZE,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        reference_id: Optional[int] = 0,
+        callbacks: Optional[
+            Union[
+                Callable[["GradLaplaceFDICA"], None],
+                List[Callable[["GradLaplaceFDICA"], None]],
+            ]
+        ] = None,
+        should_solve_permutation: Optional[bool] = True,
+        should_record_loss: Optional[bool] = True,
+        eps: Optional[float] = EPS,
+    ) -> None:
         super().__init__(
-            lr=lr,
+            step_size=step_size,
+            flooring_fn=flooring_fn,
             reference_id=reference_id,
             callbacks=callbacks,
             should_solve_permutation=should_solve_permutation,
@@ -234,9 +335,11 @@ class GradLaplaceFDICA(GradFDICAbase):
             eps=eps,
         )
 
-    def update_once(self):
+    def update_once(self) -> None:
+        """Update demixing filters once using gradient descent.
+        """
         n_frames = self.n_frames
-        lr = self.lr
+        step_size = self.step_size
 
         X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
@@ -249,25 +352,27 @@ class GradLaplaceFDICA(GradFDICAbase):
 
         Y = Y.transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
         denominator = np.abs(Y)
-        denominator = self.floor_fn(denominator)
+        denominator = self.flooring_fn(denominator)
         Phi = Y / denominator  # (n_bins, n_sources, n_frames)
 
         delta = (Phi @ X_Hermite) / n_frames - W_inverseHermite
-        W = W - lr * delta  # (n_bins, n_sources, n_channels)
+        W = W - step_size * delta  # (n_bins, n_sources, n_channels)
 
         Y = self.separate(X, demix_filter=W)
 
         self.demix_filter = W
         self.output = Y
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = "GradLaplaceFDICA("
-        s += "lr={lr}"
+        s += "step_size={step_size}"
         s += ")"
 
         return s.format(**self.__dict__)
 
-    def compute_negative_loglikelihood(self):
+    def compute_negative_loglikelihood(self) -> float:
+        """Compute negative log-likelihood.
+        """
         X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
 
@@ -278,18 +383,59 @@ class GradLaplaceFDICA(GradFDICAbase):
 
 
 class NaturalGradLaplaceFDICA(GradFDICAbase):
+    """Frequency-domain independent component analysis
+    on Laplacian distribution using natural gradient descent.
+
+    Args:
+        step_size (``Optional[float]``):
+            Step size of gradient descent. Default: ``{STEP_SIZE}``.
+        flooring_fn (``Optional[Callable[[numpy.ndarray], numpy.ndarray]]``):
+            Flooring function for numerical stability. Default: ``None``.
+        reference_id (``Optional[int]``):
+            Reference microphone index for projection back. Default: ``0``.
+        is_holonomic (``Optional[bool]``):
+            Holonomic update. Default: ``True``.
+        callbacks (``Optional[Union[Callable[[NaturalGradLaplaceFDICA], None], \
+            List[Callable[[NaturalGradLaplaceFDICA], None]]]]``):
+            Callback function(s). Default: ``None``.
+        should_solve_permutation (``Optional[bool]``):
+            Solve permutation after updates of demixing filters. Default: ``True``.
+        should_record_loss (``Optional[bool]``):
+            Record loss. Default: ``True``.
+        eps (``Optional[float]``):
+            Epsilon value for numerical stability. Default: ``{EPS}``.
+
+    Examples:
+        >>> import soundfile as sf
+        >>> import scipy.signal as ss
+        >>> from pybss.bss.fdica import NaturalGradLaplaceFDICA
+        >>> waveform_mix, _ = sf.read("sample-2ch.wav")
+        >>> fdica = NaturalGradLaplaceFDICA()
+        >>> _, _, spectrogram_mix = ss.stft(waveform_mix.T, nperseg=4096, noverlap=2048)
+        >>> spectrogram_est = fdica(spectrogram_mix)
+        >>> print(spectrogram_mix.shape, spectrogram_est.shape)
+        (2, 2049, 80), (2, 2049, 80)
+    """
+
     def __init__(
         self,
-        lr=1e-1,
-        reference_id=0,
-        is_holonomic=True,
-        callbacks=None,
-        should_solve_permutation=True,
-        should_record_loss=True,
-        eps=EPS,
-    ):
+        step_size: Optional[float] = STEP_SIZE,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        reference_id: Optional[int] = 0,
+        is_holonomic: Optional[bool] = True,
+        callbacks: Optional[
+            Union[
+                Callable[["NaturalGradLaplaceFDICA"], None],
+                List[Callable[["NaturalGradLaplaceFDICA"], None]],
+            ]
+        ] = None,
+        should_solve_permutation: Optional[bool] = True,
+        should_record_loss: Optional[bool] = True,
+        eps: Optional[float] = EPS,
+    ) -> None:
         super().__init__(
-            lr=lr,
+            step_size=step_size,
+            flooring_fn=flooring_fn,
             reference_id=reference_id,
             callbacks=callbacks,
             should_solve_permutation=should_solve_permutation,
@@ -299,18 +445,20 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
 
         self.is_holonomic = is_holonomic
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = "GradLaplaceFDICA("
-        s += "lr={lr}"
+        s += "step_size={step_size}"
         s += ", is_holonomic={is_holonomic}"
         s += ")"
 
         return s.format(**self.__dict__)
 
-    def update_once(self):
+    def update_once(self) -> None:
+        """Update demixing filters once using natural gradient descent.
+        """
         n_sources, n_channels = self.n_sources, self.n_channels
         n_frames = self.n_frames
-        lr = self.lr
+        step_size = self.step_size
 
         X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
@@ -319,7 +467,7 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         Y = Y.transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
         Y_Hermite = Y.transpose(0, 2, 1).conj()  # (n_bins, n_frames, n_sources)
         denominator = np.abs(Y)
-        denominator = self.floor_fn(denominator)
+        denominator = self.flooring_fn(denominator)
         Phi = Y / denominator  # (n_bins, n_sources, n_frames)
 
         if self.is_holonomic:
@@ -327,14 +475,16 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         else:
             raise NotImplementedError("only suports for is_holonomic = True")
 
-        W = W - lr * delta  # (n_bins, n_sources, n_channels)
+        W = W - step_size * delta  # (n_bins, n_sources, n_channels)
 
         Y = self.separate(X, demix_filter=W)
 
         self.demix_filter = W
         self.output = Y
 
-    def compute_negative_loglikelihood(self):
+    def compute_negative_loglikelihood(self) -> float:
+        """Compute negative log-likelihood.
+        """
         X, W = self.input, self.demix_filter
         Y = self.separate(X, demix_filter=W)
 
@@ -343,3 +493,9 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         loss = loss.sum()
 
         return loss
+
+
+GradLaplaceFDICA.__doc__ = GradLaplaceFDICA.__doc__.format(STEP_SIZE=STEP_SIZE, EPS=EPS)
+NaturalGradLaplaceFDICA.__doc__ = NaturalGradLaplaceFDICA.__doc__.format(
+    STEP_SIZE=STEP_SIZE, EPS=EPS
+)
