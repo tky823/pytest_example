@@ -75,7 +75,8 @@ class IVAbase:
             self.demix_filter = np.tile(W, reps=(n_bins, 1, 1))
         else:
             # To avoid overwriting `demix_filter` given by keyword arguments.
-            self.demix_filter = self.demix_filter.copy()
+            W = self.demix_filter.copy()
+            self.demix_filter = W
 
         self.output = self.separate(X, demix_filter=W)
 
