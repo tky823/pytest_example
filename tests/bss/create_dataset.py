@@ -2,8 +2,9 @@ import os
 from typing import List, Dict, Any, Optional
 
 import numpy as np
+from scipy.io import loadmat
 import scipy.signal as ss
-from scipy.io import wavfile, loadmat
+import soundfile as sf
 
 
 def set_seed(seed: Optional[int] = 42) -> None:
@@ -22,8 +23,7 @@ def _resample_mird_rir(rir_path: str, sample_rate_out: int) -> np.ndarray:
 def _convolve_rir(
     source_path: str, rir: np.ndarray, n_channels: Optional[int] = 2
 ) -> np.ndarray:
-    _, source = wavfile.read(source_path)
-    source = source / 2 ** 15
+    source, _ = sf.read(source_path)
     n_samples = len(source)
 
     source_image = []
