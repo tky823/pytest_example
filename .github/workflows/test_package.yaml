@@ -30,6 +30,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements/dev.txt
           pip install -e .
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install libsndfile1
       - name: Download dataset (Ubuntu & MacOS)
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
