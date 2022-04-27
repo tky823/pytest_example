@@ -26,15 +26,14 @@ __algorithms_spatial__ = [
 class IVAbase:
     def __init__(
         self,
-        flooring_fn: Optional[Callable] = None,
+        flooring_fn: Optional[Callable] = partial(max_flooring, threshold=EPS),
         callbacks: Optional[
             Union[Callable[["IVAbase"], None], List[Callable[["IVAbase"], None]]]
         ] = None,
-        should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
+        should_record_loss: bool = True,
     ) -> None:
         if flooring_fn is None:
-            self.flooring_fn = partial(max_flooring, threshold=eps)
+            self.flooring_fn = lambda x: x  # identity
         else:
             self.flooring_fn = flooring_fn
 
@@ -45,8 +44,6 @@ class IVAbase:
             self.callbacks = callbacks
         else:
             self.callbacks = None
-
-        self.eps = eps
 
         self.input = None
         self.should_record_loss = should_record_loss
@@ -161,7 +158,7 @@ class GradIVAbase(IVAbase):
     def __init__(
         self,
         step_size: Optional[float] = STEP_SIZE,
-        flooring_fn: Optional[Callable] = None,
+        flooring_fn: Optional[Callable] = partial(max_flooring, threshold=EPS),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
             Union[
@@ -268,7 +265,7 @@ class GradLaplaceIVA(GradIVAbase):
     def __init__(
         self,
         step_size: Optional[float] = STEP_SIZE,
-        flooring_fn: Optional[Callable] = None,
+        flooring_fn: Optional[Callable] = partial(max_flooring, threshold=EPS),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
             Union[
@@ -374,7 +371,7 @@ class NaturalGradLaplaceIVA(GradIVAbase):
     def __init__(
         self,
         step_size: Optional[float] = STEP_SIZE,
-        flooring_fn: Optional[Callable] = None,
+        flooring_fn: Optional[Callable] = partial(max_flooring, threshold=EPS),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
             Union[
