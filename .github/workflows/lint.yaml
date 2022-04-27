@@ -1,4 +1,4 @@
-name: tests
+name: black
 on:
   push:
     branches:
@@ -12,7 +12,7 @@ on:
       - beta
 jobs:
   build:
-    name: Run tests with pytest
+    name: Run linters
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,6 +25,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install black flake8
-      - name: Install dependencies
+      - name: Run linters
         run: |
           python -m black --config pyproject.toml pybss tests
