@@ -3,6 +3,7 @@ from typing import List, Callable, Union
 import pytest
 
 from pybss.bss.iva import GradLaplaceIVA, NaturalGradLaplaceIVA
+from pybss.transforms import PCA
 from tests.bss.create_dataset import set_seed, create_sisec2011_mird_spectrograms
 
 root = "./tests/.data/SiSEC2011+MIRD"
@@ -28,11 +29,18 @@ class DummyCallback:
         pass
 
 
-callbacks = [None, dummy_function, [DummyCallback(), dummy_function]]
+parameters = [
+    (None, False),
+    (dummy_function, False),
+    ([DummyCallback(), dummy_function], True),
+]
 
 
-@pytest.mark.parametrize("callbacks", callbacks)
-def test_grad_iva(callbacks: Union[Callable, List[Callable]]) -> None:
+@pytest.mark.parametrize("callbacks, should_initialize_demix_filter", parameters)
+def test_grad_iva(
+    callbacks: Union[Callable, List[Callable]],
+    should_initialize_demix_filter: bool,
+) -> None:
     set_seed()
 
     spectrogram_mix = create_sisec2011_mird_spectrograms(
@@ -47,13 +55,25 @@ def test_grad_iva(callbacks: Union[Callable, List[Callable]]) -> None:
     )
 
     iva = GradLaplaceIVA(step_size=1e-1, callbacks=callbacks)
-    spectrogram_est = iva(spectrogram_mix, n_iter=n_iter)
+
+    if should_initialize_demix_filter:
+        pca = PCA()
+        _ = pca(spectrogram_mix)
+
+        spectrogram_est = iva(
+            spectrogram_mix, n_iter=n_iter, demix_filter=pca.proj_matrix
+        )
+    else:
+        spectrogram_est = iva(spectrogram_mix, n_iter=n_iter)
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."
 
 
-@pytest.mark.parametrize("callbacks", callbacks)
-def test_natural_grad_iva(callbacks: Union[Callable, List[Callable]]) -> None:
+@pytest.mark.parametrize("callbacks, should_initialize_demix_filter", parameters)
+def test_natural_grad_iva(
+    callbacks: Union[Callable, List[Callable]],
+    should_initialize_demix_filter: bool,
+) -> None:
     set_seed()
 
     spectrogram_mix = create_sisec2011_mird_spectrograms(
@@ -68,6 +88,15 @@ def test_natural_grad_iva(callbacks: Union[Callable, List[Callable]]) -> None:
     )
 
     iva = NaturalGradLaplaceIVA(step_size=1e-1, callbacks=callbacks)
-    spectrogram_est = iva(spectrogram_mix, n_iter=n_iter)
+
+    if should_initialize_demix_filter:
+        pca = PCA()
+        _ = pca(spectrogram_mix)
+
+        spectrogram_est = iva(
+            spectrogram_mix, n_iter=n_iter, demix_filter=pca.proj_matrix
+        )
+    else:
+        spectrogram_est = iva(spectrogram_mix, n_iter=n_iter)
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."

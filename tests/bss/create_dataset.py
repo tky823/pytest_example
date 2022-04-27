@@ -2,8 +2,9 @@ import os
 from typing import List, Dict, Any, Optional
 
 import numpy as np
+from scipy.io import loadmat
 import scipy.signal as ss
-from scipy.io import wavfile, loadmat
+import soundfile as sf
 
 
 def set_seed(seed: Optional[int] = 42) -> None:
@@ -22,8 +23,7 @@ def _resample_mird_rir(rir_path: str, sample_rate_out: int) -> np.ndarray:
 def _convolve_rir(
     source_path: str, rir: np.ndarray, n_channels: Optional[int] = 2
 ) -> np.ndarray:
-    _, source = wavfile.read(source_path)
-    source = source / 2 ** 15
+    source, _ = sf.read(source_path)
     n_samples = len(source)
 
     source_image = []
@@ -103,6 +103,7 @@ def create_sisec2011_mird_dataset(
     sample_rate = 16000
     duration = 0.160
     n_samples = int(sample_rate * duration)
+    template_rir_name = "Impulse_response_Acoustic_Lab_Bar-Ilan_University_(Reverberation_{:.3f}s)_3-3-3-8-3-3-3_1m_{:03d}.mat"  # noqa: E501
 
     source_paths = [
         os.path.join(sisec2011_root, "{}_src_1.wav".format(tag)),
@@ -110,18 +111,9 @@ def create_sisec2011_mird_dataset(
         os.path.join(sisec2011_root, "{}_src_3.wav".format(tag)),
     ]
     rir_paths = [
-        os.path.join(
-            mird_root,
-            "Impulse_response_Acoustic_Lab_Bar-Ilan_University_(Reverberation_0.160s)_3-3-3-8-3-3-3_1m_030.mat",  # noqa: E501
-        ),
-        os.path.join(
-            mird_root,
-            "Impulse_response_Acoustic_Lab_Bar-Ilan_University_(Reverberation_0.160s)_3-3-3-8-3-3-3_1m_345.mat",  # noqa: E501
-        ),
-        os.path.join(
-            mird_root,
-            "Impulse_response_Acoustic_Lab_Bar-Ilan_University_(Reverberation_0.160s)_3-3-3-8-3-3-3_1m_000.mat",  # noqa: E501
-        ),
+        os.path.join(mird_root, template_rir_name.format(duration, 30)),
+        os.path.join(mird_root, template_rir_name.format(duration, 345)),
+        os.path.join(mird_root, template_rir_name.format(duration, 0)),
     ]
     channels = [3, 4, 2, 5]
 
@@ -140,7 +132,13 @@ def create_sisec2011_mird_dataset(
         )
 
         os.makedirs(root, exist_ok=True)
-        np.savez(npz_path, n_sources=n_sources, n_channels=n_channels, **source_images)
+        np.savez(
+            npz_path,
+            sample_rate=sample_rate,
+            n_sources=n_sources,
+            n_channels=n_channels,
+            **source_images
+        )
 
     return npz_path
 

@@ -16,13 +16,14 @@ __all__ = ["GradLaplaceFDICA", "NaturalGradLaplaceFDICA"]
 class FDICAbase:
     def __init__(
         self,
-        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = partial(
+            max_flooring, threshold=EPS
+        ),
         callbacks: Optional[List[Callable[["FDICAbase"], None]]] = None,
         should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
     ) -> None:
         if flooring_fn is None:
-            self.flooring_fn = partial(max_flooring, threshold=eps)
+            self.flooring_fn = lambda x: x  # identity
         else:
             self.flooring_fn = flooring_fn
 
@@ -33,8 +34,6 @@ class FDICAbase:
             self.callbacks = callbacks
         else:
             self.callbacks = None
-
-        self.eps = eps
 
         self.input = None
         self.should_record_loss = should_record_loss
@@ -181,7 +180,9 @@ class GradFDICAbase(FDICAbase):
     def __init__(
         self,
         step_size: Optional[float] = STEP_SIZE,
-        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = partial(
+            max_flooring, threshold=EPS
+        ),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
             Union[
@@ -192,13 +193,11 @@ class GradFDICAbase(FDICAbase):
         should_apply_projection_back: Optional[bool] = True,
         should_solve_permutation: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
     ) -> None:
         super().__init__(
             flooring_fn=flooring_fn,
             callbacks=callbacks,
             should_record_loss=should_record_loss,
-            eps=eps,
         )
 
         self.step_size = step_size
@@ -291,8 +290,6 @@ class GradLaplaceFDICA(GradFDICAbase):
             Solve permutation after updates of demixing filters. Default: ``True``.
         should_record_loss (``Optional[bool]``)
             Record loss. Default: ``True``.
-        eps (``Optional[float]``):
-            Epsilon value for numerical stability. Default: ``{EPS}``.
 
     Examples:
         >>> import soundfile as sf
@@ -314,7 +311,9 @@ class GradLaplaceFDICA(GradFDICAbase):
     def __init__(
         self,
         step_size: Optional[float] = STEP_SIZE,
-        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = partial(
+            max_flooring, threshold=EPS
+        ),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
             Union[
@@ -324,7 +323,6 @@ class GradLaplaceFDICA(GradFDICAbase):
         ] = None,
         should_solve_permutation: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
     ) -> None:
         super().__init__(
             step_size=step_size,
@@ -333,7 +331,6 @@ class GradLaplaceFDICA(GradFDICAbase):
             callbacks=callbacks,
             should_solve_permutation=should_solve_permutation,
             should_record_loss=should_record_loss,
-            eps=eps,
         )
 
     def update_once(self) -> None:
@@ -403,8 +400,6 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
             Solve permutation after updates of demixing filters. Default: ``True``.
         should_record_loss (``Optional[bool]``):
             Record loss. Default: ``True``.
-        eps (``Optional[float]``):
-            Epsilon value for numerical stability. Default: ``{EPS}``.
 
     Examples:
         >>> import soundfile as sf
@@ -421,7 +416,9 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
     def __init__(
         self,
         step_size: Optional[float] = STEP_SIZE,
-        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        flooring_fn: Optional[Callable[[np.ndarray], np.ndarray]] = partial(
+            max_flooring, threshold=EPS
+        ),
         reference_id: Optional[int] = 0,
         is_holonomic: Optional[bool] = True,
         callbacks: Optional[
@@ -432,7 +429,6 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         ] = None,
         should_solve_permutation: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
     ) -> None:
         super().__init__(
             step_size=step_size,
@@ -441,7 +437,6 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
             callbacks=callbacks,
             should_solve_permutation=should_solve_permutation,
             should_record_loss=should_record_loss,
-            eps=eps,
         )
 
         self.is_holonomic = is_holonomic
@@ -496,7 +491,7 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
         return loss
 
 
-GradLaplaceFDICA.__doc__ = GradLaplaceFDICA.__doc__.format(STEP_SIZE=STEP_SIZE, EPS=EPS)
+GradLaplaceFDICA.__doc__ = GradLaplaceFDICA.__doc__.format(STEP_SIZE=STEP_SIZE)
 NaturalGradLaplaceFDICA.__doc__ = NaturalGradLaplaceFDICA.__doc__.format(
-    STEP_SIZE=STEP_SIZE, EPS=EPS
+    STEP_SIZE=STEP_SIZE
 )
