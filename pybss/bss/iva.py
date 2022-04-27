@@ -167,13 +167,11 @@ class GradIVAbase(IVAbase):
         ] = None,
         should_apply_projection_back: bool = True,
         should_record_loss: bool = True,
-        eps: float = EPS,
     ) -> None:
         super().__init__(
             flooring_fn=flooring_fn,
             callbacks=callbacks,
             should_record_loss=should_record_loss,
-            eps=eps,
         )
 
         self.step_size = step_size
@@ -244,8 +242,6 @@ class GradLaplaceIVA(GradIVAbase):
             Solve permutation. Default: True,
         should_record_loss (``Optional[bool]``)
             Record loss. Default: True.
-        eps (``Optional[float]``):
-            Epsilon value for numerical stability. Default: ``{EPS}``.
 
     Examples:
         >>> import soundfile as sf
@@ -275,7 +271,6 @@ class GradLaplaceIVA(GradIVAbase):
         ] = None,
         should_apply_projection_back: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
     ) -> None:
         super().__init__(
             step_size=step_size,
@@ -284,7 +279,6 @@ class GradLaplaceIVA(GradIVAbase):
             callbacks=callbacks,
             should_apply_projection_back=should_apply_projection_back,
             should_record_loss=should_record_loss,
-            eps=eps,
         )
 
     def __repr__(self) -> str:
@@ -353,8 +347,6 @@ class NaturalGradLaplaceIVA(GradIVAbase):
             Solve permutation. Default: True,
         should_record_loss (``Optional[bool]``)
             Record loss. Default: True.
-        eps (``Optional[float]``):
-            Epsilon value for numerical stability. Default: ``{EPS}``.
 
     Examples:
         >>> import soundfile as sf
@@ -381,7 +373,6 @@ class NaturalGradLaplaceIVA(GradIVAbase):
         ] = None,
         should_apply_projection_back: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
-        eps: Optional[float] = EPS,
     ):
         super().__init__(
             step_size=step_size,
@@ -390,7 +381,6 @@ class NaturalGradLaplaceIVA(GradIVAbase):
             callbacks=callbacks,
             should_apply_projection_back=should_apply_projection_back,
             should_record_loss=should_record_loss,
-            eps=eps,
         )
 
     def __repr__(self) -> str:
@@ -439,7 +429,7 @@ class NaturalGradLaplaceIVA(GradIVAbase):
         return loss
 
 
-GradLaplaceIVA.__doc__ = GradLaplaceIVA.__doc__.format(STEP_SIZE=STEP_SIZE, EPS=EPS)
+GradLaplaceIVA.__doc__ = GradLaplaceIVA.__doc__.format(STEP_SIZE=STEP_SIZE)
 NaturalGradLaplaceIVA.__doc__ = NaturalGradLaplaceIVA.__doc__.format(
-    STEP_SIZE=STEP_SIZE, EPS=EPS
+    STEP_SIZE=STEP_SIZE
 )
