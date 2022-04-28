@@ -38,8 +38,7 @@ parameters = [
 
 @pytest.mark.parametrize("callbacks, should_initialize_demix_filter", parameters)
 def test_grad_iva(
-    callbacks: Union[Callable, List[Callable]],
-    should_initialize_demix_filter: bool,
+    callbacks: Union[Callable, List[Callable]], should_initialize_demix_filter: bool,
 ) -> None:
     set_seed()
 
@@ -60,19 +59,23 @@ def test_grad_iva(
         pca = PCA()
         _ = pca(spectrogram_mix)
 
-        spectrogram_est = iva(
-            spectrogram_mix, n_iter=n_iter, demix_filter=pca.proj_matrix
-        )
+        spectrogram_est = iva(spectrogram_mix, n_iter=n_iter, demix_filter=pca.proj_matrix)
     else:
         spectrogram_est = iva(spectrogram_mix, n_iter=n_iter)
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."
 
+    import matplotlib.pyplot as plt
+
+    plt.figure()
+    plt.plot()
+    plt.savefig("")
+    plt.close()
+
 
 @pytest.mark.parametrize("callbacks, should_initialize_demix_filter", parameters)
 def test_natural_grad_iva(
-    callbacks: Union[Callable, List[Callable]],
-    should_initialize_demix_filter: bool,
+    callbacks: Union[Callable, List[Callable]], should_initialize_demix_filter: bool,
 ) -> None:
     set_seed()
 
@@ -93,9 +96,7 @@ def test_natural_grad_iva(
         pca = PCA()
         _ = pca(spectrogram_mix)
 
-        spectrogram_est = iva(
-            spectrogram_mix, n_iter=n_iter, demix_filter=pca.proj_matrix
-        )
+        spectrogram_est = iva(spectrogram_mix, n_iter=n_iter, demix_filter=pca.proj_matrix)
     else:
         spectrogram_est = iva(spectrogram_mix, n_iter=n_iter)
 
