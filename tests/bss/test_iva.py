@@ -68,8 +68,8 @@ def test_grad_iva(
     import matplotlib.pyplot as plt
 
     plt.figure()
-    plt.plot()
-    plt.savefig("")
+    plt.plot(iva.loss)
+    plt.savefig("loss.png", bbox_inches="tight")
     plt.close()
 
 
