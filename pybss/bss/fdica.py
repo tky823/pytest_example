@@ -67,9 +67,7 @@ class FDICAbase:
 
         self.output = self.separate(X, demix_filter=W)
 
-    def __call__(
-        self, input: np.ndarray, n_iter: Optional[int] = 100, **kwargs
-    ) -> np.ndarray:
+    def __call__(self, input: np.ndarray, n_iter: Optional[int] = 100, **kwargs) -> np.ndarray:
         """Separate multichannel signal by FDICA.
 
         Args:
@@ -185,19 +183,14 @@ class GradFDICAbase(FDICAbase):
         ),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
-            Union[
-                Callable[["GradFDICAbase"], None],
-                List[Callable[["GradFDICAbase"], None]],
-            ]
+            Union[Callable[["GradFDICAbase"], None], List[Callable[["GradFDICAbase"], None]]]
         ] = None,
         should_apply_projection_back: Optional[bool] = True,
         should_solve_permutation: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
     ) -> None:
         super().__init__(
-            flooring_fn=flooring_fn,
-            callbacks=callbacks,
-            should_record_loss=should_record_loss,
+            flooring_fn=flooring_fn, callbacks=callbacks, should_record_loss=should_record_loss,
         )
 
         self.step_size = step_size
@@ -205,9 +198,7 @@ class GradFDICAbase(FDICAbase):
         self.should_apply_projection_back = should_apply_projection_back
         self.should_solve_permutation = should_solve_permutation
 
-    def __call__(
-        self, input: np.ndarray, n_iter: Optional[int] = 100, **kwargs
-    ) -> np.ndarray:
+    def __call__(self, input: np.ndarray, n_iter: Optional[int] = 100, **kwargs) -> np.ndarray:
         """Separate multichannel signal by FDICA using gradient descent.
 
         Args:
@@ -254,9 +245,7 @@ class GradFDICAbase(FDICAbase):
     def apply_projection_back(self) -> None:
         """Apply projection back to separated signal.
         """
-        assert (
-            self.should_apply_projection_back
-        ), "Set should_apply_projection_back True."
+        assert self.should_apply_projection_back, "Set should_apply_projection_back True."
 
         reference_id = self.reference_id
         X, W = self.input, self.demix_filter
@@ -316,10 +305,7 @@ class GradLaplaceFDICA(GradFDICAbase):
         ),
         reference_id: Optional[int] = 0,
         callbacks: Optional[
-            Union[
-                Callable[["GradLaplaceFDICA"], None],
-                List[Callable[["GradLaplaceFDICA"], None]],
-            ]
+            Union[Callable[["GradLaplaceFDICA"], None], List[Callable[["GradLaplaceFDICA"], None]]]
         ] = None,
         should_solve_permutation: Optional[bool] = True,
         should_record_loss: Optional[bool] = True,
@@ -344,9 +330,7 @@ class GradLaplaceFDICA(GradFDICAbase):
 
         X_Hermite = X.transpose(1, 2, 0).conj()  # (n_bins, n_frames, n_sources)
         W_inverse = np.linalg.inv(W)
-        W_inverseHermite = W_inverse.transpose(
-            0, 2, 1
-        ).conj()  # (n_bins, n_channels, n_sources)
+        W_inverseHermite = W_inverse.transpose(0, 2, 1).conj()  # (n_bins, n_channels, n_sources)
 
         Y = Y.transpose(1, 0, 2)  # (n_bins, n_sources, n_frames)
         denominator = np.abs(Y)
@@ -492,6 +476,4 @@ class NaturalGradLaplaceFDICA(GradFDICAbase):
 
 
 GradLaplaceFDICA.__doc__ = GradLaplaceFDICA.__doc__.format(STEP_SIZE=STEP_SIZE)
-NaturalGradLaplaceFDICA.__doc__ = NaturalGradLaplaceFDICA.__doc__.format(
-    STEP_SIZE=STEP_SIZE
-)
+NaturalGradLaplaceFDICA.__doc__ = NaturalGradLaplaceFDICA.__doc__.format(STEP_SIZE=STEP_SIZE)
