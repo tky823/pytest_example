@@ -29,7 +29,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements/dev.txt
-          python -m pip install matplotlib
           pip install -e .
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -53,8 +52,3 @@ jobs:
         with:
           fail_ci_if_error: true
           verbose: true
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: images
-          path: *.png

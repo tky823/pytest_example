@@ -65,13 +65,6 @@ def test_grad_iva(
 
     assert spectrogram_mix.shape == spectrogram_est.shape, "Invalid shape."
 
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.plot(iva.loss)
-    plt.savefig("loss.png", bbox_inches="tight")
-    plt.close()
-
 
 @pytest.mark.parametrize("callbacks, should_initialize_demix_filter", parameters)
 def test_natural_grad_iva(
