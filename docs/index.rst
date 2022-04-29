@@ -12,8 +12,18 @@ Contents
 .. toctree::
    :maxdepth: 1
 
+   changelog
    tutorial
    api
+
+.. image:: https://github.com/tky823/pytest_example/actions/workflows/lint.yaml/badge.svg
+   :target: https://github.com/tky823/pytest_example/actions/workflows/lint.yaml
+
+.. image:: https://github.com/tky823/pytest_example/actions/workflows/test_package.yaml/badge.svg
+   :target: https://github.com/tky823/pytest_example/actions/workflows/test_package.yaml
+
+.. image:: https://codecov.io/gh/tky823/pytest_example/branch/main/graph/badge.svg?token=OAIESUJGOG
+   :target: https://codecov.io/gh/tky823/pytest_example
 
 Indices and tables
 ------------------
